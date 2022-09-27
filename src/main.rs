@@ -53,6 +53,7 @@ impl Session {
     fn increase_counter(&mut self) {
         self.counter += 1;
         self.nonce.copy_from_slice(&self.counter.to_be_bytes());
+        self.cc20 = ChaCha20::new(&self.key, &self.nonce);
     }
 
     fn encrypt(&mut self, plain: Vec<u8>) -> Vec<u8> {
