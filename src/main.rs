@@ -12,8 +12,6 @@ struct Session {
     secret: EphemeralSecret,
     pk: EncodedPoint,
     key: [u8; 32],
-    nonce: [u8; 8],
-    counter: u64,
     cc20: ChaCha20,
     b3: blake3::Hasher,
 }
@@ -27,9 +25,7 @@ impl Session {
             secret: secret,
             pk: EncodedPoint::from(pk),
             key: [0; 32],
-            nonce: [0; 8],
-            counter: 0,
-            cc20: ChaCha20::new(&[0; 32], &[0; 8]),
+            cc20: ChaCha20::new_xchacha20(&[0; 32], &[0; 24]),
             b3: blake3::Hasher::new(),
         }
     }
@@ -46,14 +42,8 @@ impl Session {
         self.b3.update(shared_bytes);
         self.key = self.b3.finalize().as_bytes().clone();
         self.b3.reset();
-        self.cc20 = ChaCha20::new(&self.key, &[0; 8]);
+        self.cc20 = ChaCha20::new_xchacha20(&self.key, &[0; 24]);
         self.ready = true;
-    }
-
-    fn increase_counter(&mut self) {
-        self.counter += 1;
-        self.nonce.copy_from_slice(&self.counter.to_be_bytes());
-        self.cc20 = ChaCha20::new(&self.key, &self.nonce);
     }
 
     fn encrypt(&mut self, plain: Vec<u8>) -> Vec<u8> {
@@ -61,13 +51,13 @@ impl Session {
             panic!("session not ready!")
         };
 
-        self.increase_counter();
         println!("[ENC] plain (hex): {}", hex::encode(plain.clone()));
         // mac
         let mac = self.mac(&plain);
         println!("[ENC] MAC: {}", hex::encode(mac));
 
         let mut output: Vec<u8> = repeat(0).take(plain.len()).collect();
+        self.cc20 = ChaCha20::new_xchacha20(&self.key, &mac);
         self.cc20.process(&plain[..], &mut output[..]);
         output.extend_from_slice(&mac);
         output
@@ -77,15 +67,15 @@ impl Session {
         if !self.ready {
             panic!("session not ready!")
         };
-        self.increase_counter();
 
         println!("[DEC] cipher: {}", hex::encode(ciphertext.clone()));
 
-        // claimed mac is last 16 bytes
-        let claimed_mac: Vec<u8> = ciphertext.split_off(ciphertext.len() - 16);
+        // claimed mac is last 24 bytes
+        let claimed_mac: Vec<u8> = ciphertext.split_off(ciphertext.len() - 24);
         println!("[DEC] Claimed MAC: {}", hex::encode(claimed_mac.clone()));
 
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
+        self.cc20 = ChaCha20::new_xchacha20(&self.key, &claimed_mac);
         self.cc20.process(&ciphertext[..], &mut output[..]);
 
         println!("[DEC] plain (hex): {}", hex::encode(output.clone()));
@@ -107,16 +97,15 @@ impl Session {
         output
     }
 
-    fn mac(&mut self, plain: &[u8]) -> [u8; 16] {
+    fn mac(&mut self, plain: &[u8]) -> [u8; 24] {
         if !self.ready {
             panic!("session not ready!")
         };
 
         self.b3.update(plain);
         self.b3.update(&self.key);
-        self.b3.update(&self.nonce);
 
-        let mut mac = [0u8; 16];
+        let mut mac = [0u8; 24];
         self.b3.finalize_xof().fill(&mut mac);
         self.b3.reset();
 
@@ -160,9 +149,8 @@ fn main() {
 
     sesh2.decrypt(encrypted_bytes.clone());
 
-    // pretend to change eight random bytes in the encrypted message
     let mut tampered_bytes = sesh1.encrypt(plain.clone());
-    tamper_with(&mut tampered_bytes, 8);
+    tamper_with(&mut tampered_bytes, 1);
 
     println!(
         "\nTampered Encrypted: {}",
