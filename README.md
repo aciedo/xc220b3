@@ -11,6 +11,7 @@ This is a custom authenticated cipher used for symmetrical encryption. It is bas
 - This ensures nonces are never reused on the same key for two different messages, while not suffering from slowdowns experienced with random nonces.
 - There is less state for a session to store (it only needs the symmetric key).
 - It also saves space in messages, as additional data is not appended to the cipher during encryption apart from the MAC.
+- BLAKE3 can be significantly faster than Poly1305, dropping down to 0.49 cycles per byte on modern hardware vs ~2.5 cycles per byte for Poly1305 for 16KB+ messages (5x improvement).
 
 ## Key Exchange
 
