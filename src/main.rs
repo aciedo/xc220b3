@@ -1,11 +1,7 @@
-use core::str;
-use crypto::chacha20::ChaCha20;
-use crypto::symmetriccipher::SynchronousStreamCipher;
+use core::{str, iter::repeat};
+use crypto::{chacha20::ChaCha20, symmetriccipher::SynchronousStreamCipher};
 use k256::{ecdh::EphemeralSecret, EncodedPoint, PublicKey};
-use rand::thread_rng;
-use rand::Rng;
-use rand_core::OsRng;
-use std::{env, iter::repeat}; // requires 'getrandom' feature
+use rand::{thread_rng, Rng};
 use tracing::{info, error, debug, info_span};
 
 struct Session {
@@ -24,7 +20,7 @@ enum SessionError {
 
 impl Session {
     fn new() -> Session {
-        let secret = EphemeralSecret::random(&mut OsRng);
+        let secret = EphemeralSecret::random(&mut thread_rng());
         let pk = secret.public_key();
         Session {
             ready: false,
@@ -64,7 +60,6 @@ impl Session {
         let span = info_span!("encrypt");
         let _enter = span.enter();
 
-        // mac
         let mac = self.mac(&plain);
         debug!("MAC: {}", hex::encode(mac));
 
@@ -72,6 +67,7 @@ impl Session {
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &mac);
         self.cc20.process(&plain[..], &mut output[..]);
         output.extend_from_slice(&mac);
+        debug!("done");
         output
     }
 
@@ -94,7 +90,7 @@ impl Session {
             debug!("Calculated MAC: {}", hex::encode(calculated_mac));
             return Err(SessionError::MacMismatch);
         }
-
+        debug!("done");
         Ok(output)
     }
 
@@ -120,12 +116,7 @@ fn main() {
     let mut key: [u8; 32] = [0; 32];
     thread_rng().fill(&mut key);
 
-    let mut msg = "Hello";
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() > 1 {
-        msg = args[1].as_str();
-    }
+    let msg = "Hello";
 
     info!("== xc220b3 demo ==");
     info!("Message: {:?}", msg);
