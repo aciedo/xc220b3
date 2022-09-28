@@ -6,6 +6,7 @@ use rand::thread_rng;
 use rand::Rng;
 use rand_core::OsRng;
 use std::{env, iter::repeat}; // requires 'getrandom' feature
+use tracing::{info, error, debug, info_span};
 
 struct Session {
     ready: bool,
@@ -14,6 +15,11 @@ struct Session {
     key: [u8; 32],
     cc20: ChaCha20,
     b3: blake3::Hasher,
+}
+
+#[derive(Debug)]
+enum SessionError {
+    MacMismatch,
 }
 
 impl Session {
@@ -35,6 +41,9 @@ impl Session {
             panic!("Session already ready");
         }
 
+        let span = info_span!("set_sym_key");
+        let _enter = span.enter();
+
         let pk = PublicKey::from_sec1_bytes(pk.as_ref()).expect("public key is invalid!");
         let shared = self.secret.diffie_hellman(&pk);
         let shared_bytes = shared.raw_secret_bytes();
@@ -43,6 +52,7 @@ impl Session {
         self.key = self.b3.finalize().as_bytes().clone();
         self.b3.reset();
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &[0; 24]);
+        debug!("session ready");
         self.ready = true;
     }
 
@@ -51,10 +61,12 @@ impl Session {
             panic!("session not ready!")
         };
 
-        println!("[ENC] plain (hex): {}", hex::encode(plain.clone()));
+        let span = info_span!("encrypt");
+        let _enter = span.enter();
+
         // mac
         let mac = self.mac(&plain);
-        println!("[ENC] MAC: {}", hex::encode(mac));
+        debug!("MAC: {}", hex::encode(mac));
 
         let mut output: Vec<u8> = repeat(0).take(plain.len()).collect();
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &mac);
@@ -63,38 +75,27 @@ impl Session {
         output
     }
 
-    fn decrypt(&mut self, mut ciphertext: Vec<u8>) -> Vec<u8> {
+    fn decrypt(&mut self, mut ciphertext: Vec<u8>) -> Result<Vec<u8>, SessionError> {
         if !self.ready {
             panic!("session not ready!")
         };
 
-        println!("[DEC] cipher: {}", hex::encode(ciphertext.clone()));
+        let span = info_span!("decrypt");
+        let _enter = span.enter();
 
-        // claimed mac is last 24 bytes
         let claimed_mac: Vec<u8> = ciphertext.split_off(ciphertext.len() - 24);
-        println!("[DEC] Claimed MAC: {}", hex::encode(claimed_mac.clone()));
-
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &claimed_mac);
         self.cc20.process(&ciphertext[..], &mut output[..]);
 
-        println!("[DEC] plain (hex): {}", hex::encode(output.clone()));
-        match str::from_utf8(&output) {
-            Ok(v) => println!("[DEC] plain: {}", v),
-            Err(e) => println!("[DEC] Invalid UTF-8 sequence: {}", e),
-        };
-
-        // calculate our own mac of the plain
         let calculated_mac = self.mac(&output);
         if claimed_mac != calculated_mac {
-            println!("[DEC] Claimed MAC: {}", hex::encode(claimed_mac));
-            println!("[DEC] Calculated MAC: {}", hex::encode(calculated_mac));
-            panic!("MAC mismatch. Message has been tampered with.");
-        } else {
-            println!("[DEC] MAC looks good ✅");
+            debug!("Claimed MAC: {}", hex::encode(claimed_mac));
+            debug!("Calculated MAC: {}", hex::encode(calculated_mac));
+            return Err(SessionError::MacMismatch);
         }
 
-        output
+        Ok(output)
     }
 
     fn mac(&mut self, plain: &[u8]) -> [u8; 24] {
@@ -114,6 +115,8 @@ impl Session {
 }
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     let mut key: [u8; 32] = [0; 32];
     thread_rng().fill(&mut key);
 
@@ -124,14 +127,17 @@ fn main() {
         msg = args[1].as_str();
     }
 
-    println!("== c220b3 demo ==");
-    println!("Message: {:?}", msg);
+    info!("== xc220b3 demo ==");
+    info!("Message: {:?}", msg);
 
     let mut sesh1 = Session::new();
     let mut sesh2 = Session::new();
 
     // give each session the other's secp256k1 public key so they can derive a
     // shared secret, which is hashed to get the symmetric key (technically ECDHE)
+
+    debug!("sesh1 pk: {}", sesh1.pk);
+    debug!("sesh2 pk: {}", sesh2.pk);
 
     sesh1.set_sym_key(&sesh2.pk);
     sesh2.set_sym_key(&sesh1.pk);
@@ -147,22 +153,31 @@ fn main() {
 
     let encrypted_bytes = sesh1.encrypt(plain.clone());
 
-    sesh2.decrypt(encrypted_bytes.clone());
+    match sesh2.decrypt(encrypted_bytes.clone()) {
+        Ok(plain) => {
+            info!("Decrypted: {:?}", str::from_utf8(&plain[..]).unwrap());
+        }
+        Err(e) => {
+            error!("Error: {:?}", e);
+        }
+    };
+
+    info!("Now attempting message modification...");
 
     let mut tampered_bytes = sesh1.encrypt(plain.clone());
     tamper_with(&mut tampered_bytes, 1);
 
-    println!(
-        "\nTampered Encrypted: {}",
+    info!(
+        "Tampered Encrypted: {}",
         hex::encode(tampered_bytes.clone())
     );
 
-    // Decrypting
-    let decrypted_bytes2 = sesh2.decrypt(tampered_bytes.clone());
-    println!(
-        "\nDecrypted: {}",
-        str::from_utf8(&decrypted_bytes2[..]).unwrap()
-    );
+    match sesh2.decrypt(tampered_bytes) {
+        Ok(_) => (),
+        Err(e) => match e {
+            SessionError::MacMismatch => info!("MAC mismatch! Message was tampered with! (expected)"),
+        },
+    };
 }
 
 fn tamper_with(bytes: &mut Vec<u8>, many_times: usize) {
