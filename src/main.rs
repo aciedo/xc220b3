@@ -28,8 +28,8 @@ fn main() {
     debug!("sesh1 pk: {}", sesh1.pk());
     debug!("sesh2 pk: {}", sesh2.pk());
 
-    sesh1.set_sym_key(&sesh2.pk());
-    sesh2.set_sym_key(&sesh1.pk());
+    sesh1.set_sym_key(&sesh2.pk()).unwrap();
+    sesh2.set_sym_key(&sesh1.pk()).unwrap();
 
     // when this happens in production, we're using a variation of certificates
     // to exchange the public keys between live signers and valera's server.
