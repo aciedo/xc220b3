@@ -1,7 +1,7 @@
 use core::{str, iter::repeat};
 use crypto::{chacha20::ChaCha20, symmetriccipher::SynchronousStreamCipher};
 use k256::{ecdh::EphemeralSecret, EncodedPoint, PublicKey};
-use rand::{thread_rng, Rng};
+use rand::{thread_rng, Rng, CryptoRng, RngCore};
 use tracing::{info, error, debug, info_span};
 
 struct Session {
@@ -19,8 +19,8 @@ enum SessionError {
 }
 
 impl Session {
-    fn new() -> Session {
-        let secret = EphemeralSecret::random(&mut thread_rng());
+    fn new(rng: &mut (impl CryptoRng + RngCore)) -> Session {
+        let secret = EphemeralSecret::random(rng);
         let pk = secret.public_key();
         Session {
             ready: false,
@@ -121,8 +121,9 @@ fn main() {
     info!("== xc220b3 demo ==");
     info!("Message: {:?}", msg);
 
-    let mut sesh1 = Session::new();
-    let mut sesh2 = Session::new();
+    let mut rng = thread_rng();
+    let mut sesh1 = Session::new(&mut rng);
+    let mut sesh2 = Session::new(&mut rng);
 
     // give each session the other's secp256k1 public key so they can derive a
     // shared secret, which is hashed to get the symmetric key (technically ECDHE)
