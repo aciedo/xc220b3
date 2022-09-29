@@ -66,7 +66,8 @@ fn main() {
         Err(e) => match e {
             SessionError::MacMismatch => {
                 info!("MAC mismatch! Message was tampered with! (expected)")
-            }
+            },
+            _ => error!("Wrong error received")
         },
     };
 }
