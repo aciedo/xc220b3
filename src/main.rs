@@ -50,13 +50,6 @@ impl Hash24 {
     }
 }
 
-impl From<[u8; 24]> for Hash24 {
-    #[inline]
-    fn from(bytes: [u8; 24]) -> Self {
-        Self(bytes)
-    }
-}
-
 impl From<Hash24> for [u8; 24] {
     #[inline]
     fn from(hash: Hash24) -> Self {
@@ -77,6 +70,14 @@ impl PartialEq<[u8; 24]> for Hash24 {
     #[inline]
     fn eq(&self, other: &[u8; 24]) -> bool {
         constant_time_eq(&self.0, other)
+    }
+}
+
+/// This implementation is constant-time.
+impl PartialEq<Hash24> for [u8; 24] {
+    #[inline]
+    fn eq(&self, other: &Hash24) -> bool {
+        constant_time_eq(&other.0, self)
     }
 }
 
@@ -181,7 +182,7 @@ impl Session {
         self.cc20.process(&ciphertext[..], &mut output[..]);
 
         let calculated_mac = self.mac(&output);
-        if Hash24(claimed_mac) != calculated_mac {
+        if claimed_mac != calculated_mac {
             debug!("Claimed MAC: {}", hex::encode(claimed_mac));
             debug!("Calculated MAC: {}", calculated_mac.to_hex());
             return Err(SessionError::MacMismatch);
