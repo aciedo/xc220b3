@@ -1,3 +1,13 @@
+// why do we use this over BLAKE3's `Hash` struct?
+
+// we use a 24 byte hash because it's the same size as the nonce for XChaCha20
+// the `Hash` type is 32 bytes, which means we can't use it
+
+// the `OutputReader` we use for the 24 byte output can't be used for
+// constant-time equality checks we need during the mac check in decryption
+// for security, so this is a modified version of the `Hash` type for 24 bytes
+// minus some functionality we aren't using
+
 use core::fmt;
 use arrayvec::ArrayString;
 use blake3::OutputReader;
