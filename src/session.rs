@@ -20,6 +20,7 @@ pub struct Session {
 #[derive(Debug)]
 pub enum SessionError {
     MacMismatch,
+    InvalidPubKey
 }
 
 impl Session {
@@ -36,7 +37,7 @@ impl Session {
         }
     }
 
-    pub fn set_sym_key(&mut self, pk: &EncodedPoint) {
+    pub fn set_sym_key(&mut self, pk: &EncodedPoint) -> Result<(), SessionError> {
         if self.ready {
             panic!("Session already ready");
         }
@@ -44,7 +45,10 @@ impl Session {
         let span = info_span!("set_sym_key");
         let _enter = span.enter();
 
-        let pk = PublicKey::from_sec1_bytes(pk.as_ref()).expect("public key is invalid!");
+        let pk = match PublicKey::from_sec1_bytes(pk.as_ref()) {
+            Ok(pk) => pk,
+            Err(_) => return Err(SessionError::InvalidPubKey)
+        };
         let shared = self.secret.diffie_hellman(&pk);
         let shared_bytes = shared.raw_secret_bytes();
 
@@ -54,6 +58,7 @@ impl Session {
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &[0; 24]);
         debug!("session ready");
         self.ready = true;
+        Ok(())
     }
 
     pub fn encrypt(&mut self, plain: Vec<u8>) -> Vec<u8> {
@@ -64,12 +69,16 @@ impl Session {
         let span = info_span!("encrypt");
         let _enter = span.enter();
 
+        debug!("start");
         let mac = self.mac(&plain);
         debug!("MAC: {}", mac.to_hex());
 
+        debug!("allocating for {}byte output", plain.len());
         let mut output: Vec<u8> = repeat(0).take(plain.len()).collect();
+        debug!("encrypting");
         self.cc20 = ChaCha20::new_xchacha20(&self.key, mac.as_bytes());
         self.cc20.process(&plain[..], &mut output[..]);
+        debug!("extending with mac");
         output.extend_from_slice(mac.as_bytes());
         debug!("done");
         output
@@ -83,16 +92,25 @@ impl Session {
         let span = info_span!("decrypt");
         let _enter = span.enter();
 
+        debug!("start");
+
         let claimed_mac: [u8; 24] = ciphertext.split_off(ciphertext.len() - 24).try_into().unwrap();
+        debug!("allocating for {}byte output", ciphertext.len());
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
+        debug!("creating new chacha");
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &claimed_mac);
+        debug!("encrypting");
         self.cc20.process(&ciphertext[..], &mut output[..]);
 
+        debug!("calculating our own mac");
         let calculated_mac = self.mac(&output);
+        debug!("checking mac");
         if claimed_mac != calculated_mac {
             debug!("Claimed MAC: {}", hex::encode(claimed_mac));
             debug!("Calculated MAC: {}", calculated_mac.to_hex());
             return Err(SessionError::MacMismatch);
+        } else {
+            debug!("mac good 👍");
         }
         debug!("done");
         Ok(output)
