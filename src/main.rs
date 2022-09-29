@@ -1,13 +1,13 @@
 use core::str;
 use rand::{thread_rng, Rng};
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 use crate::session::{Session, SessionError};
 
 mod hash24;
 mod session;
 
-fn main() {
+fn main() -> Result<(), SessionError> {
     tracing_subscriber::fmt::init();
 
     let mut key: [u8; 32] = [0; 32];
@@ -22,14 +22,15 @@ fn main() {
     let mut sesh1 = Session::new(&mut rng);
     let mut sesh2 = Session::new(&mut rng);
 
+    // these would be usually communicated out of band in a cert
+    let sesh1pk = sesh1.pk().unwrap();
+    let sesh2pk = sesh2.pk().unwrap();
+
     // give each session the other's secp256k1 public key so they can derive a
     // shared secret, which is hashed to get the symmetric key (technically ECDHE)
 
-    debug!("sesh1 pk: {}", sesh1.pk());
-    debug!("sesh2 pk: {}", sesh2.pk());
-
-    sesh1.set_sym_key(&sesh2.pk()).unwrap();
-    sesh2.set_sym_key(&sesh1.pk()).unwrap();
+    sesh1.set_sym_key(&sesh2pk)?;
+    sesh2.set_sym_key(&sesh1pk)?;
 
     // when this happens in production, we're using a variation of certificates
     // to exchange the public keys between live signers and valera's server.
@@ -70,6 +71,8 @@ fn main() {
             _ => error!("Wrong error received")
         },
     };
+
+    Ok(())
 }
 
 fn tamper_with(bytes: &mut Vec<u8>, many_times: usize) {

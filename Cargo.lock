@@ -319,6 +319,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb9f9e6e233e5c4a35559a617bf40a4ec447db2e84c20b55a6f83167b7e57872"
 
 [[package]]
+name = "pqc_kyber"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da7355bd909f4309ce6af620a0fc97d5d09d4b38480cc07e06e00b63da9d0d65"
+dependencies = [
+ "cc",
+ "rand_core 0.6.4",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -666,6 +676,7 @@ dependencies = [
  "constant_time_eq 0.2.4",
  "hex",
  "k256",
+ "pqc_kyber",
  "rand 0.8.5",
  "rust-crypto",
  "rustc-serialize",

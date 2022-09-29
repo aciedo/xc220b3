@@ -10,8 +10,7 @@ use crate::hash24::Hash24;
 
 pub struct Session {
     ready: bool,
-    secret: EphemeralSecret,
-    pk: EncodedPoint,
+    secret: Option<EphemeralSecret>,
     key: [u8; 32],
     cc20: ChaCha20,
     b3: Hasher,
@@ -20,17 +19,15 @@ pub struct Session {
 #[derive(Debug)]
 pub enum SessionError {
     MacMismatch,
-    InvalidPubKey
+    InvalidPubKey,
+    EmptySecret
 }
 
 impl Session {
     pub fn new(rng: &mut (impl CryptoRng + RngCore)) -> Session {
-        let secret = EphemeralSecret::random(rng);
-        let pk = secret.public_key();
         Session {
             ready: false,
-            secret: secret,
-            pk: EncodedPoint::from(pk),
+            secret: Some(EphemeralSecret::random(rng)),
             key: [0; 32],
             cc20: ChaCha20::new_xchacha20(&[0; 32], &[0; 24]),
             b3: Hasher::new(),
@@ -49,7 +46,13 @@ impl Session {
             Ok(pk) => pk,
             Err(_) => return Err(SessionError::InvalidPubKey)
         };
-        let shared = self.secret.diffie_hellman(&pk);
+        let shared = {
+            let this = self.secret.as_ref();
+            match this {
+                Some(val) => val,
+                None => return Err(SessionError::EmptySecret),
+            }
+        }.diffie_hellman(&pk);
         let shared_bytes = shared.raw_secret_bytes();
 
         self.b3.update(shared_bytes);
@@ -58,6 +61,7 @@ impl Session {
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &[0; 24]);
         debug!("session ready");
         self.ready = true;
+        self.secret = None;
         Ok(())
     }
 
@@ -130,7 +134,11 @@ impl Session {
         hash
     }
 
-    pub fn pk(&self) -> &EncodedPoint {
-        &self.pk
+    pub fn pk(&self) -> Result<EncodedPoint, SessionError> {
+        if self.secret.is_none() {
+            Err(SessionError::EmptySecret)
+        } else {
+            Ok(EncodedPoint::from(self.secret.as_ref().unwrap().public_key()))
+        }
     }
 }
