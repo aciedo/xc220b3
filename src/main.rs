@@ -1,8 +1,12 @@
-use core::{str, iter::repeat};
+use core::{iter::repeat, str, fmt};
+use std::convert::TryInto;
+use arrayvec::ArrayString;
+use blake3::{OutputReader};
+use constant_time_eq::constant_time_eq;
 use crypto::{chacha20::ChaCha20, symmetriccipher::SynchronousStreamCipher};
 use k256::{ecdh::EphemeralSecret, EncodedPoint, PublicKey};
-use rand::{thread_rng, Rng, CryptoRng, RngCore};
-use tracing::{info, error, debug, info_span};
+use rand::{thread_rng, CryptoRng, Rng, RngCore};
+use tracing::{debug, error, info, info_span};
 
 struct Session {
     ready: bool,
@@ -16,6 +20,98 @@ struct Session {
 #[derive(Debug)]
 enum SessionError {
     MacMismatch,
+}
+
+struct Hash24([u8; 24]);
+
+impl Hash24 {
+    /// The raw bytes of the `Hash`. Note that byte arrays don't provide
+    /// constant-time equality checking, so if  you need to compare hashes,
+    /// prefer the `Hash` type.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8; 24] {
+        &self.0
+    }
+
+    pub fn from_output_reader(reader: &mut OutputReader) -> Self {
+        let mut hash = [0u8; 24];
+        reader.fill(&mut hash);
+        Self(hash)
+    }
+
+    pub fn to_hex(&self) -> ArrayString<{ 2 * 24 }> {
+        let mut s = ArrayString::new();
+        let table = b"0123456789abcdef";
+        for &b in self.0.iter() {
+            s.push(table[(b >> 4) as usize] as char);
+            s.push(table[(b & 0xf) as usize] as char);
+        }
+        s
+    }
+}
+
+impl From<[u8; 24]> for Hash24 {
+    #[inline]
+    fn from(bytes: [u8; 24]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl From<Hash24> for [u8; 24] {
+    #[inline]
+    fn from(hash: Hash24) -> Self {
+        hash.0
+    }
+}
+
+/// This implementation is constant-time.
+impl PartialEq for Hash24 {
+    #[inline]
+    fn eq(&self, other: &Hash24) -> bool {
+        constant_time_eq(&self.0, &other.0)
+    }
+}
+
+/// This implementation is constant-time.
+impl PartialEq<[u8; 24]> for Hash24 {
+    #[inline]
+    fn eq(&self, other: &[u8; 24]) -> bool {
+        constant_time_eq(&self.0, other)
+    }
+}
+
+/// This implementation is constant-time if the target is 32 bytes long.
+impl PartialEq<[u8]> for Hash24 {
+    #[inline]
+    fn eq(&self, other: &[u8]) -> bool {
+        constant_time_eq(&self.0, other)
+    }
+}
+
+impl Eq for Hash24 {}
+
+impl fmt::Display for Hash24 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Formatting field as `&str` to reduce code size since the `Debug`
+        // dynamic dispatch table for `&str` is likely needed elsewhere already,
+        // but that for `ArrayString<[u8; 64]>` is not.
+        let hex = self.to_hex();
+        let hex: &str = hex.as_str();
+
+        f.write_str(hex)
+    }
+}
+
+impl fmt::Debug for Hash24 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Formatting field as `&str` to reduce code size since the `Debug`
+        // dynamic dispatch table for `&str` is likely needed elsewhere already,
+        // but that for `ArrayString<[u8; 64]>` is not.
+        let hex = self.to_hex();
+        let hex: &str = hex.as_str();
+
+        f.debug_tuple("Hash").field(&hex).finish()
+    }
 }
 
 impl Session {
@@ -61,12 +157,12 @@ impl Session {
         let _enter = span.enter();
 
         let mac = self.mac(&plain);
-        debug!("MAC: {}", hex::encode(mac));
+        debug!("MAC: {}", mac.to_hex());
 
         let mut output: Vec<u8> = repeat(0).take(plain.len()).collect();
-        self.cc20 = ChaCha20::new_xchacha20(&self.key, &mac);
+        self.cc20 = ChaCha20::new_xchacha20(&self.key, mac.as_bytes());
         self.cc20.process(&plain[..], &mut output[..]);
-        output.extend_from_slice(&mac);
+        output.extend_from_slice(mac.as_bytes());
         debug!("done");
         output
     }
@@ -79,22 +175,22 @@ impl Session {
         let span = info_span!("decrypt");
         let _enter = span.enter();
 
-        let claimed_mac: Vec<u8> = ciphertext.split_off(ciphertext.len() - 24);
+        let claimed_mac: [u8; 24] = ciphertext.split_off(ciphertext.len() - 24).try_into().unwrap();
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
         self.cc20 = ChaCha20::new_xchacha20(&self.key, &claimed_mac);
         self.cc20.process(&ciphertext[..], &mut output[..]);
 
         let calculated_mac = self.mac(&output);
-        if claimed_mac != calculated_mac {
+        if Hash24(claimed_mac) != calculated_mac {
             debug!("Claimed MAC: {}", hex::encode(claimed_mac));
-            debug!("Calculated MAC: {}", hex::encode(calculated_mac));
+            debug!("Calculated MAC: {}", calculated_mac.to_hex());
             return Err(SessionError::MacMismatch);
         }
         debug!("done");
         Ok(output)
     }
 
-    fn mac(&mut self, plain: &[u8]) -> [u8; 24] {
+    fn mac(&mut self, plain: &[u8]) -> Hash24 {
         if !self.ready {
             panic!("session not ready!")
         };
@@ -102,11 +198,10 @@ impl Session {
         self.b3.update(plain);
         self.b3.update(&self.key);
 
-        let mut mac = [0u8; 24];
-        self.b3.finalize_xof().fill(&mut mac);
+        let mut reader = self.b3.finalize_xof();
+        let hash = Hash24::from_output_reader(&mut reader);
         self.b3.reset();
-
-        mac
+        hash
     }
 }
 
@@ -167,7 +262,9 @@ fn main() {
     match sesh2.decrypt(tampered_bytes) {
         Ok(_) => (),
         Err(e) => match e {
-            SessionError::MacMismatch => info!("MAC mismatch! Message was tampered with! (expected)"),
+            SessionError::MacMismatch => {
+                info!("MAC mismatch! Message was tampered with! (expected)")
+            }
         },
     };
 }
