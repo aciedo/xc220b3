@@ -3,12 +3,11 @@
 // we use a 24 byte hash because it's the same size as the nonce for XChaCha20
 // the `Hash` type is 32 bytes, which means we can't use it
 
-// the `OutputReader` we use for the 24 byte output can't be used for
-// constant-time equality checks we need during the mac check in decryption
+// the `OutputReader` we use for the 24 byte output can't be used for the
+// constant-time equality checks we need for the mac check during decryption
 // for security, so this is a modified version of the `Hash` type for 24 bytes
 // minus some functionality we aren't using
 
-use core::fmt;
 use arrayvec::ArrayString;
 use blake3::OutputReader;
 use constant_time_eq::constant_time_eq;
@@ -17,8 +16,7 @@ pub struct Hash24([u8; 24]);
 
 impl Hash24 {
     /// The raw bytes of the `Hash`. Note that byte arrays don't provide
-    /// constant-time equality checking, so if  you need to compare hashes,
-    /// prefer the `Hash` type.
+    /// constant-time equality checking, so use `Hash24` instead.
     #[inline]
     pub fn as_bytes(&self) -> &[u8; 24] {
         &self.0
@@ -81,27 +79,3 @@ impl PartialEq<[u8]> for Hash24 {
 }
 
 impl Eq for Hash24 {}
-
-impl fmt::Display for Hash24 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Formatting field as `&str` to reduce code size since the `Debug`
-        // dynamic dispatch table for `&str` is likely needed elsewhere already,
-        // but that for `ArrayString<[u8; 64]>` is not.
-        let hex = self.to_hex();
-        let hex: &str = hex.as_str();
-
-        f.write_str(hex)
-    }
-}
-
-impl fmt::Debug for Hash24 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Formatting field as `&str` to reduce code size since the `Debug`
-        // dynamic dispatch table for `&str` is likely needed elsewhere already,
-        // but that for `ArrayString<[u8; 64]>` is not.
-        let hex = self.to_hex();
-        let hex: &str = hex.as_str();
-
-        f.debug_tuple("Hash").field(&hex).finish()
-    }
-}
