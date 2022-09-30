@@ -1,6 +1,6 @@
 use blake3::Hasher;
 use k256::{ecdh::EphemeralSecret, EncodedPoint, elliptic_curve::PublicKey};
-use rand::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "tracing")]
 use tracing::{trace, info_span};
 use core::iter::repeat;
