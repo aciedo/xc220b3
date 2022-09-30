@@ -7,9 +7,6 @@ use xc220b3::{Session, SessionError};
 fn main() -> Result<(), SessionError> {
     tracing_subscriber::fmt::init();
 
-    let mut key: [u8; 32] = [0; 32];
-    thread_rng().fill(&mut key);
-
     let msg = "Hello";
 
     info!("== xc220b3 demo ==");
