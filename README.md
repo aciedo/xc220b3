@@ -2,7 +2,7 @@
 
 ## Demo
 
-```
+```sh
 RUST_LOG=debug cargo run --release --example basic
 ```
 
