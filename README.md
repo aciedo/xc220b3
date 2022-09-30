@@ -1,6 +1,6 @@
 # `xc220b3`
 
-## Demo
+### Demo
 
 ```sh
 RUST_LOG=debug cargo run --release --example basic
@@ -11,6 +11,14 @@ _For the losers who use Windows_
 $env RUST_LOG=debug
 cargo run --release --example basic
 ```
+
+### Usage
+
+```sh
+cargo add xc220b3
+```
+
+Look at `basic.rs` in `examples` for usage.
 
 ---
 
