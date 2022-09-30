@@ -5,6 +5,14 @@
 ```sh
 RUST_LOG=debug cargo run --release --example basic
 ```
+_For the losers who use Windows_
+
+```
+$env RUST_LOG=debug
+cargo run --release --example basic
+```
+
+---
 
 **Note:** This has not been audited. Use at your own risk. This is a work in progress for internal use at Valera. It is likely to change and need optimisations to achieve its goals.
 
