@@ -275,7 +275,7 @@ mod test {
             key:   [u8; 32],
             nonce: [u8; 8],
             keystream: Vec<u8>,
-        };
+        }
         // taken from http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04
         let test_vectors = vec!(
             TestVector{

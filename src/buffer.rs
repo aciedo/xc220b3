@@ -4,9 +4,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::cmp;
-
-use crate::cryptoutil;
+use core::{cmp, ptr};
 
 #[derive(Clone,Copy)]
 pub enum BufferResult {
@@ -38,7 +36,16 @@ pub trait ReadBuffer {
 
     fn push_to<W: WriteBuffer>(&mut self, output: &mut W) {
         let count = cmp::min(output.remaining(), self.remaining());
-        cryptoutil::copy_memory(self.take_next(count), output.take_next(count));
+        {
+            let src = self.take_next(count);
+            let dst: &mut [u8] = output.take_next(count);
+            assert!(dst.len() >= src.len());
+            unsafe {
+                let srcp = src.as_ptr();
+                let dstp = dst.as_mut_ptr();
+                ptr::copy_nonoverlapping(srcp, dstp, src.len());
+            }
+        };
     }
 }
 
