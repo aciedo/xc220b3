@@ -1,4 +1,4 @@
-mod hash24;
+mod mac;
 mod session;
 mod xc220;
 mod buffer;

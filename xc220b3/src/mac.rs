@@ -12,11 +12,11 @@ use arrayvec::ArrayString;
 use blake3::OutputReader;
 use constant_time_eq::constant_time_eq;
 
-pub struct Hash24([u8; 24]);
+pub struct MAC([u8; 24]);
 
-impl Hash24 {
+impl MAC {
     /// The raw bytes of the `Hash`. Note that byte arrays don't provide
-    /// constant-time equality checking, so use `Hash24` instead.
+    /// constant-time equality checking, so use `MAC` instead.
     #[inline]
     pub fn as_bytes(&self) -> &[u8; 24] {
         &self.0
@@ -37,25 +37,36 @@ impl Hash24 {
         }
         s
     }
+
+    
 }
 
-impl From<Hash24> for [u8; 24] {
+impl From<MAC> for [u8; 24] {
     #[inline]
-    fn from(hash: Hash24) -> Self {
+    fn from(hash: MAC) -> Self {
         hash.0
     }
 }
 
-/// This implementation is constant-time.
-impl PartialEq for Hash24 {
+impl From<Vec<u8>> for MAC {
     #[inline]
-    fn eq(&self, other: &Hash24) -> bool {
+    fn from(bytes: Vec<u8>) -> Self {
+        let mut hash = [0u8; 24];
+        hash.copy_from_slice(&bytes[..24]);
+        Self(hash)
+    }
+}
+
+/// This implementation is constant-time.
+impl PartialEq for MAC {
+    #[inline]
+    fn eq(&self, other: &MAC) -> bool {
         constant_time_eq(&self.0, &other.0)
     }
 }
 
 /// This implementation is constant-time.
-impl PartialEq<[u8; 24]> for Hash24 {
+impl PartialEq<[u8; 24]> for MAC {
     #[inline]
     fn eq(&self, other: &[u8; 24]) -> bool {
         constant_time_eq(&self.0, other)
@@ -63,19 +74,19 @@ impl PartialEq<[u8; 24]> for Hash24 {
 }
 
 /// This implementation is constant-time.
-impl PartialEq<Hash24> for [u8; 24] {
+impl PartialEq<MAC> for [u8; 24] {
     #[inline]
-    fn eq(&self, other: &Hash24) -> bool {
+    fn eq(&self, other: &MAC) -> bool {
         constant_time_eq(&other.0, self)
     }
 }
 
 /// This implementation is constant-time if the target is 32 bytes long.
-impl PartialEq<[u8]> for Hash24 {
+impl PartialEq<[u8]> for MAC {
     #[inline]
     fn eq(&self, other: &[u8]) -> bool {
         constant_time_eq(&self.0, other)
     }
 }
 
-impl Eq for Hash24 {}
+impl Eq for MAC {}

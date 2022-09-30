@@ -5,7 +5,7 @@ use tracing::{debug, info_span};
 use core::iter::repeat;
 use core::convert::TryInto;
 
-use crate::{hash24::Hash24, xc220::XC220, symmetriccipher::SynchronousStreamCipher};
+use crate::{mac::MAC, xc220::XC220, symmetriccipher::SynchronousStreamCipher};
 
 pub struct Session {
     ready: bool,
@@ -97,11 +97,11 @@ impl Session {
 
         debug!("start");
 
-        let claimed_mac: [u8; 24] = ciphertext.split_off(ciphertext.len() - 24).try_into().unwrap();
+        let claimed_mac = MAC::from(ciphertext.split_off(ciphertext.len() - 24));
         debug!("allocating for {}byte output", ciphertext.len());
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
         debug!("creating new chacha");
-        self.cc20 = XC220::new(&self.key, &claimed_mac);
+        self.cc20 = XC220::new(&self.key, claimed_mac.as_bytes());
         debug!("encrypting");
         self.cc20.process(&ciphertext[..], &mut output[..]);
 
@@ -109,7 +109,7 @@ impl Session {
         let calculated_mac = self.mac(&output);
         debug!("checking mac");
         if claimed_mac != calculated_mac {
-            debug!("Claimed MAC: {}", hex::encode(claimed_mac));
+            debug!("Claimed MAC: {}", claimed_mac.to_hex());
             debug!("Calculated MAC: {}", calculated_mac.to_hex());
             return Err(SessionError::MacMismatch);
         } else {
@@ -119,7 +119,7 @@ impl Session {
         Ok(output)
     }
 
-    fn mac(&mut self, plain: &[u8]) -> Hash24 {
+    fn mac(&mut self, plain: &[u8]) -> MAC {
         if !self.ready {
             panic!("session not ready!")
         };
@@ -128,7 +128,7 @@ impl Session {
         self.b3.update(&self.key);
 
         let mut reader = self.b3.finalize_xof();
-        let hash = Hash24::from_output_reader(&mut reader);
+        let hash = MAC::from_output_reader(&mut reader);
         self.b3.reset();
         hash
     }
