@@ -1,18 +1,17 @@
 use blake3::Hasher;
-use crypto::{chacha20::ChaCha20, symmetriccipher::SynchronousStreamCipher};
 use k256::{ecdh::EphemeralSecret, EncodedPoint, elliptic_curve::PublicKey};
 use rand::{CryptoRng, RngCore};
 use tracing::{debug, info_span};
 use core::iter::repeat;
-use std::convert::TryInto;
+use core::convert::TryInto;
 
-use crate::hash24::Hash24;
+use crate::{hash24::Hash24, xc220::XC220, symmetriccipher::SynchronousStreamCipher};
 
 pub struct Session {
     ready: bool,
     secret: Option<EphemeralSecret>,
     key: [u8; 32],
-    cc20: ChaCha20,
+    cc20: XC220,
     b3: Hasher,
 }
 
@@ -29,7 +28,7 @@ impl Session {
             ready: false,
             secret: Some(EphemeralSecret::random(rng)),
             key: [0; 32],
-            cc20: ChaCha20::new_xchacha20(&[0; 32], &[0; 24]),
+            cc20: XC220::new(&[0; 32], &[0; 24]),
             b3: Hasher::new(),
         }
     }
@@ -58,7 +57,7 @@ impl Session {
         self.b3.update(shared_bytes);
         self.key = self.b3.finalize().as_bytes().clone();
         self.b3.reset();
-        self.cc20 = ChaCha20::new_xchacha20(&self.key, &[0; 24]);
+        self.cc20 = XC220::new(&self.key, &[0; 24]);
         debug!("session ready");
         self.ready = true;
         self.secret = None;
@@ -80,7 +79,7 @@ impl Session {
         debug!("allocating for {}byte output", plain.len());
         let mut output: Vec<u8> = repeat(0).take(plain.len()).collect();
         debug!("encrypting");
-        self.cc20 = ChaCha20::new_xchacha20(&self.key, mac.as_bytes());
+        self.cc20 = XC220::new(&self.key, mac.as_bytes());
         self.cc20.process(&plain[..], &mut output[..]);
         debug!("extending with mac");
         output.extend_from_slice(mac.as_bytes());
@@ -102,7 +101,7 @@ impl Session {
         debug!("allocating for {}byte output", ciphertext.len());
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
         debug!("creating new chacha");
-        self.cc20 = ChaCha20::new_xchacha20(&self.key, &claimed_mac);
+        self.cc20 = XC220::new(&self.key, &claimed_mac);
         debug!("encrypting");
         self.cc20.process(&ciphertext[..], &mut output[..]);
 

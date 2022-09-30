@@ -2,10 +2,7 @@ use core::str;
 use rand::{thread_rng, Rng};
 use tracing::{error, info};
 
-use crate::session::{Session, SessionError};
-
-mod hash24;
-mod session;
+use xc220b3::{Session, SessionError};
 
 fn main() -> Result<(), SessionError> {
     tracing_subscriber::fmt::init();
