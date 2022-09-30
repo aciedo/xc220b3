@@ -3,6 +3,9 @@ name = "xc220b3"
 version = "0.1.0"
 authors = ["Azz [asteria@valera.co]"]
 edition = "2021"
+description = "Quantum-safe stream encryption using XChaCha20 and BLAKE3 along with various other cryptographic primitives."
+repository = "https://github.com/valeralabs/xc220b3"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 hex= "0.4.3"
