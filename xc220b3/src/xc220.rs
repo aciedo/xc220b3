@@ -1,7 +1,7 @@
 use core::cmp;
 
 use crate::buffer::{BufferResult, RefReadBuffer, RefWriteBuffer};
-use crate::symmetriccipher::{Encryptor, Decryptor, SynchronousStreamCipher, SymmetricCipherError};
+use crate::symmetriccipher::{Encryptor, Decryptor, SynchronousStreamCipher};
 use crate::cryptoutil::{read_u32_le, symm_enc_or_dec, write_u32_le, xor_keystream};
 use crate::simd::u32x4;
 
@@ -250,14 +250,14 @@ impl SynchronousStreamCipher for XC220 {
 
 impl Encryptor for XC220 {
     fn encrypt(&mut self, input: &mut RefReadBuffer, output: &mut RefWriteBuffer, _: bool)
-            -> Result<BufferResult, SymmetricCipherError> {
+            -> BufferResult {
         symm_enc_or_dec(self, input, output)
     }
 }
 
 impl Decryptor for XC220 {
     fn decrypt(&mut self, input: &mut RefReadBuffer, output: &mut RefWriteBuffer, _: bool)
-            -> Result<BufferResult, SymmetricCipherError> {
+            -> BufferResult {
         symm_enc_or_dec(self, input, output)
     }
 }

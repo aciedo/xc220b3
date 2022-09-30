@@ -12,7 +12,7 @@ use std::{io};
 use core::{ptr, mem::MaybeUninit};
 
 use crate::buffer::{ReadBuffer, WriteBuffer, BufferResult::{self, BufferUnderflow, BufferOverflow}};
-use crate::symmetriccipher::{SynchronousStreamCipher, SymmetricCipherError};
+use crate::symmetriccipher::{SynchronousStreamCipher};
 
 
 /// Write a u64 into a vector, which must be 8 bytes long. The value is written in big-endian
@@ -63,6 +63,7 @@ pub fn write_u32_le(dst: &mut[u8], mut input: u32) {
 pub fn read_u32_le(input: &[u8]) -> u32 {
     assert!(input.len() == 4);
     unsafe {
+        #[allow(invalid_value)]
         let mut tmp: u32 = MaybeUninit::uninit().assume_init();
         ptr::copy_nonoverlapping(input.get_unchecked(0), &mut tmp as *mut _ as *mut u8, 4);
         u32::from_le(tmp)
@@ -126,13 +127,13 @@ pub fn symm_enc_or_dec<S: SynchronousStreamCipher, R: ReadBuffer, W: WriteBuffer
         c: &mut S,
         input: &mut R,
         output: &mut W) ->
-        Result<BufferResult, SymmetricCipherError> {
+        BufferResult {
     let count = std::cmp::min(input.remaining(), output.remaining());
     c.process(input.take_next(count), output.take_next(count));
     if input.is_empty() {
-        Ok(BufferUnderflow)
+        BufferUnderflow
     } else {
-        Ok(BufferOverflow)
+        BufferOverflow
     }
 }
 

@@ -1,6 +1,7 @@
 use blake3::Hasher;
 use k256::{ecdh::EphemeralSecret, EncodedPoint, elliptic_curve::PublicKey};
 use rand::{CryptoRng, RngCore};
+#[cfg(feature = "tracing")]
 use tracing::{trace, info_span};
 use core::iter::repeat;
 
@@ -37,8 +38,10 @@ impl Session {
             panic!("Session already ready");
         }
 
-        let span = info_span!("set_sym_key");
-        let _enter = span.enter();
+        #[cfg(feature = "tracing")] {
+            let span = info_span!("set_sym_key");
+            let _enter = span.enter();
+        }
 
         let pk = match PublicKey::from_sec1_bytes(pk.as_ref()) {
             Ok(pk) => pk,
@@ -69,8 +72,10 @@ impl Session {
             panic!("session not ready!")
         };
 
-        let span = info_span!("encrypt");
-        let _enter = span.enter();
+        #[cfg(feature = "tracing")] {
+            let span = info_span!("encrypt");
+            let _enter = span.enter();
+        }
 
         #[cfg(feature = "tracing")]
         trace!("start");
@@ -98,8 +103,10 @@ impl Session {
             panic!("session not ready!")
         };
 
-        let span = info_span!("decrypt");
-        let _enter = span.enter();
+        #[cfg(feature = "tracing")] {
+            let span = info_span!("decrypt");
+            let _enter = span.enter();
+        }
 
         #[cfg(feature = "tracing")]
         trace!("start");

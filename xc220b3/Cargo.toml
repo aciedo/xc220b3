@@ -1,6 +1,6 @@
 [package]
 name = "xc220b3"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Azz [asteria@valera.co]"]
 edition = "2021"
 description = "Quantum-safe stream encryption using XChaCha20 and BLAKE3 along with various other cryptographic primitives."
