@@ -1,6 +1,10 @@
 # `xc220b3`
 
-xc220b3 is a quantum-safe cryptographic library based around a **XC**ha**C**ha**20**-**B**LAKE**3** authenticated cipher. It includes various other things too, for example, wrappers for key exchange protocols and JWT-like certificates that are needed.
+**Note:** This has not been audited. Use at your own risk. This is a work in progress for internal use at Valera. It is likely to change and need optimisations to achieve its goals.
+
+xc220b3 is a (planned-to-be-quantum-safe) cryptographic library based around a **XC**ha**C**ha**20**-**B**LAKE**3** authenticated cipher. It (will) include various other things too, for example, wrappers for key exchange protocols and JWT-like certificates that are needed.
+
+The API design is opinionated - instead of returning structs, it returns bytes which are intended for direct out-of-bound transmission. You provide the transport and in/out (including serialization) and the library secures whatever you're sending.
 
 ## XChaCha20-BLAKE3
 
@@ -14,4 +18,4 @@ This is a custom authenticated cipher used for symmetrical encryption. It is bas
 
 ## Key Exchange
 
-TODO. Aiming to be quantum-safe.
+Not ready yet. Aiming to be quantum-safe.

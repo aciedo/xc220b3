@@ -2,7 +2,7 @@
 name = "xc220b3"
 version = "0.1.0"
 authors = ["Azz [asteria@valera.co]"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 hex= "0.4.3"
