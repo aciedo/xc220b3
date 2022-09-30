@@ -1,9 +1,8 @@
 use blake3::Hasher;
 use k256::{ecdh::EphemeralSecret, EncodedPoint, elliptic_curve::PublicKey};
 use rand::{CryptoRng, RngCore};
-use tracing::{debug, info_span};
+use tracing::{trace, info_span};
 use core::iter::repeat;
-use core::convert::TryInto;
 
 use crate::{mac::MAC, xc220::XC220, symmetriccipher::SynchronousStreamCipher};
 
@@ -58,7 +57,8 @@ impl Session {
         self.key = self.b3.finalize().as_bytes().clone();
         self.b3.reset();
         self.cc20 = XC220::new(&self.key, &[0; 24]);
-        debug!("session ready");
+        #[cfg(feature = "tracing")]
+        trace!("session ready");
         self.ready = true;
         self.secret = None;
         Ok(())
@@ -72,18 +72,24 @@ impl Session {
         let span = info_span!("encrypt");
         let _enter = span.enter();
 
-        debug!("start");
+        #[cfg(feature = "tracing")]
+        trace!("start");
         let mac = self.mac(&plain);
-        debug!("MAC: {}", mac.to_hex());
+        #[cfg(feature = "tracing")]
+        trace!("MAC: {}", mac.to_hex());
 
-        debug!("allocating for {}byte output", plain.len());
+        #[cfg(feature = "tracing")]
+        trace!("allocating for {}byte output", plain.len());
         let mut output: Vec<u8> = repeat(0).take(plain.len()).collect();
-        debug!("encrypting");
+        #[cfg(feature = "tracing")]
+        trace!("encrypting");
         self.cc20 = XC220::new(&self.key, mac.as_bytes());
         self.cc20.process(&plain[..], &mut output[..]);
-        debug!("extending with mac");
+        #[cfg(feature = "tracing")]
+        trace!("extending with mac");
         output.extend_from_slice(mac.as_bytes());
-        debug!("done");
+        #[cfg(feature = "tracing")]
+        trace!("done");
         output
     }
 
@@ -95,27 +101,37 @@ impl Session {
         let span = info_span!("decrypt");
         let _enter = span.enter();
 
-        debug!("start");
+        #[cfg(feature = "tracing")]
+        trace!("start");
 
         let claimed_mac = MAC::from(ciphertext.split_off(ciphertext.len() - 24));
-        debug!("allocating for {}byte output", ciphertext.len());
+        #[cfg(feature = "tracing")]
+        trace!("allocating for {}byte output", ciphertext.len());
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
-        debug!("creating new chacha");
+        #[cfg(feature = "tracing")]
+        trace!("creating new chacha");
         self.cc20 = XC220::new(&self.key, claimed_mac.as_bytes());
-        debug!("encrypting");
+        #[cfg(feature = "tracing")]
+        trace!("encrypting");
         self.cc20.process(&ciphertext[..], &mut output[..]);
 
-        debug!("calculating our own mac");
+        #[cfg(feature = "tracing")]
+        trace!("calculating our own mac");
         let calculated_mac = self.mac(&output);
-        debug!("checking mac");
+        #[cfg(feature = "tracing")]
+        trace!("checking mac");
         if claimed_mac != calculated_mac {
-            debug!("Claimed MAC: {}", claimed_mac.to_hex());
-            debug!("Calculated MAC: {}", calculated_mac.to_hex());
+            #[cfg(feature = "tracing")]
+            trace!("Claimed MAC: {}", claimed_mac.to_hex());
+            #[cfg(feature = "tracing")]
+            trace!("Calculated MAC: {}", calculated_mac.to_hex());
             return Err(SessionError::MacMismatch);
         } else {
-            debug!("mac good 👍");
+            #[cfg(feature = "tracing")]
+            trace!("mac good 👍");
         }
-        debug!("done");
+        #[cfg(feature = "tracing")]
+        trace!("done");
         Ok(output)
     }
 

@@ -1,18 +1,21 @@
 # `xc220b3`
 
+## Usage
+
 ### Demo
 
 ```sh
-RUST_LOG=debug cargo run --release --example basic
+RUST_LOG=trace cargo run --release --example basic
 ```
+
 _For the losers who use Windows_
 
 ```
-$env RUST_LOG=debug
+$env:RUST_LOG="trace"
 cargo run --release --example basic
 ```
 
-### Usage
+### Use it in your own code
 
 ```sh
 cargo add xc220b3
