@@ -1,5 +1,11 @@
 # `xc220b3`
 
+## Demo
+
+```
+RUST_LOG=debug cargo run --release --example basic
+```
+
 **Note:** This has not been audited. Use at your own risk. This is a work in progress for internal use at Valera. It is likely to change and need optimisations to achieve its goals.
 
 xc220b3 is a (planned-to-be-quantum-safe) cryptographic library based around a **XC**ha**C**ha**20**-**B**LAKE**3** authenticated cipher. It (will) include various other things too, for example, wrappers for key exchange protocols and JWT-like certificates that are needed.
