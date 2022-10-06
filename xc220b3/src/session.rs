@@ -11,7 +11,7 @@ pub struct Session {
     ready: bool,
     secret: Option<EphemeralSecret>,
     key: [u8; 32],
-    cc20: XC220,
+    xcc20: XC220,
     b3: Hasher,
 }
 
@@ -23,16 +23,19 @@ pub enum SessionError {
 }
 
 impl Session {
+    /// Creates a new session with a random ephemeral secret using provided RNG.
     pub fn new(rng: &mut (impl CryptoRng + RngCore)) -> Session {
         Session {
             ready: false,
             secret: Some(EphemeralSecret::random(rng)),
             key: [0; 32],
-            cc20: XC220::new(&[0; 32], &[0; 24]),
+            xcc20: XC220::new(&[0; 32], &[0; 24]),
             b3: Hasher::new(),
         }
     }
 
+    /// Sets the symmetric key for this session with the provided public key.
+    /// Once this is called to success, we're ready to encrypt/decrypt.
     pub fn set_sym_key(&mut self, pk: &EncodedPoint) -> Result<(), SessionError> {
         if self.ready {
             panic!("Session already ready");
@@ -59,7 +62,7 @@ impl Session {
         self.b3.update(shared_bytes);
         self.key = self.b3.finalize().as_bytes().clone();
         self.b3.reset();
-        self.cc20 = XC220::new(&self.key, &[0; 24]);
+        self.xcc20 = XC220::new(&self.key, &[0; 24]);
         #[cfg(feature = "tracing")]
         trace!("session ready");
         self.ready = true;
@@ -88,8 +91,8 @@ impl Session {
         let mut output: Vec<u8> = repeat(0).take(plain.len()).collect();
         #[cfg(feature = "tracing")]
         trace!("encrypting");
-        self.cc20 = XC220::new(&self.key, mac.as_bytes());
-        self.cc20.process(&plain[..], &mut output[..]);
+        self.xcc20 = XC220::new(&self.key, mac.as_bytes());
+        self.xcc20.process(&plain[..], &mut output[..]);
         #[cfg(feature = "tracing")]
         trace!("extending with mac");
         output.extend_from_slice(mac.as_bytes());
@@ -117,10 +120,10 @@ impl Session {
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
         #[cfg(feature = "tracing")]
         trace!("creating new chacha");
-        self.cc20 = XC220::new(&self.key, claimed_mac.as_bytes());
+        self.xcc20 = XC220::new(&self.key, claimed_mac.as_bytes());
         #[cfg(feature = "tracing")]
         trace!("encrypting");
-        self.cc20.process(&ciphertext[..], &mut output[..]);
+        self.xcc20.process(&ciphertext[..], &mut output[..]);
 
         #[cfg(feature = "tracing")]
         trace!("calculating our own mac");
