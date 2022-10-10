@@ -1,6 +1,6 @@
 [package]
 name = "xc220b3"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Azz [asteria@valera.co]"]
 edition = "2021"
 description = "Quantum-safe stream encryption using XChaCha20 and BLAKE3 along with various other cryptographic primitives."
@@ -14,6 +14,7 @@ tracing = "0.1.36"
 constant_time_eq = "0.2.4"
 arrayvec = { version = "0.7.2", default-features = false }
 rand_core = "0.6.4"
+cfg-if = "1.0.0"
 
 [features]
 default = []

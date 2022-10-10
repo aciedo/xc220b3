@@ -41,10 +41,12 @@ impl Session {
             panic!("Session already ready");
         }
 
-        #[cfg(feature = "tracing")] {
-            let span = info_span!("set_sym_key");
-            let _enter = span.enter();
-        }
+        cfg_if!(
+            if #[cfg(feature = "tracing")] {
+                let span = info_span!("set_sym_key");
+                let _enter = span.enter();
+            }
+        );
 
         let pk = match PublicKey::from_sec1_bytes(pk.as_ref()) {
             Ok(pk) => pk,
@@ -64,7 +66,7 @@ impl Session {
         self.b3.reset();
         self.xcc20 = XC220::new(&self.key, &[0; 24]);
         #[cfg(feature = "tracing")]
-        trace!("session ready");
+        trace!("key: {}***{}", to_hex(&self.key[0..2]), to_hex(&self.key[30..32]));
         self.ready = true;
         self.secret = None;
         Ok(())
@@ -75,10 +77,12 @@ impl Session {
             panic!("session not ready!")
         };
 
-        #[cfg(feature = "tracing")] {
-            let span = info_span!("encrypt");
-            let _enter = span.enter();
-        }
+        cfg_if!(
+            if #[cfg(feature = "tracing")] {
+                let span = info_span!("encrypt");
+                let _enter = span.enter();
+            }
+        );
 
         #[cfg(feature = "tracing")]
         trace!("start");
@@ -106,10 +110,12 @@ impl Session {
             panic!("session not ready!")
         };
 
-        #[cfg(feature = "tracing")] {
-            let span = info_span!("decrypt");
-            let _enter = span.enter();
-        }
+        cfg_if!(
+            if #[cfg(feature = "tracing")] {
+                let span = info_span!("decrypt");
+                let _enter = span.enter();
+            }
+        );
 
         #[cfg(feature = "tracing")]
         trace!("start");
@@ -165,5 +171,21 @@ impl Session {
         } else {
             Ok(EncodedPoint::from(self.secret.as_ref().unwrap().public_key()))
         }
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "tracing")] {
+        const HEX_CHARS: &[u8] = b"0123456789abcdef";
+
+// u8 array to hex string using lookup table
+fn to_hex(bytes: &[u8]) -> String {
+    let mut hex = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        hex.push(HEX_CHARS[(byte >> 4) as usize] as char);
+        hex.push(HEX_CHARS[(byte & 0xf) as usize] as char);
+    }
+    hex
+}
     }
 }

@@ -16,3 +16,5 @@ xc220b3 = { path = "../xc220b3", features = ["tracing"] }
 [[example]]
 name = "basic"
 path = "basic.rs"
+
+[features]

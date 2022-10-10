@@ -7,3 +7,6 @@ mod symmetriccipher;
 mod simd;
 
 pub use session::*;
+
+#[macro_use]
+extern crate cfg_if;

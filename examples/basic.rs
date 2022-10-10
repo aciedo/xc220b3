@@ -1,5 +1,4 @@
-use core::str;
-use rand::{thread_rng, Rng};
+use rand::{thread_rng, Rng, RngCore};
 use tracing::{error, info};
 
 use xc220b3::{Session, SessionError};
@@ -33,13 +32,15 @@ fn main() -> Result<(), SessionError> {
     // public keys for valera, so they verify that they're talking to valid peers
     // before we give each session the other's public key.
 
-    let plain = msg.as_bytes().to_vec();
+    // generate 512 MB of random data to encrypt
+    let mut data: Vec<u8> = vec![0; 16 * 1024];
+    rng.fill_bytes(&mut data);
 
-    let encrypted_bytes = sesh1.encrypt(plain.clone());
+    let encrypted_bytes = sesh1.encrypt(data.clone());
 
     match sesh2.decrypt(encrypted_bytes.clone()) {
-        Ok(plain) => {
-            info!("Decrypted: {:?}", str::from_utf8(&plain[..]).unwrap());
+        Ok(_) => {
+            info!("Decrypted");
         }
         Err(e) => {
             error!("Error: {:?}", e);
@@ -48,13 +49,13 @@ fn main() -> Result<(), SessionError> {
 
     info!("Now attempting message modification...");
 
-    let mut tampered_bytes = sesh1.encrypt(plain.clone());
+    let mut tampered_bytes = sesh1.encrypt(data.clone());
     tamper_with(&mut tampered_bytes, 1);
 
-    info!(
-        "Tampered Encrypted: {}",
-        hex::encode(tampered_bytes.clone())
-    );
+    // info!(
+    //     "Tampered Encrypted: {}",
+    //     hex::encode(tampered_bytes.clone())
+    // );
 
     match sesh2.decrypt(tampered_bytes) {
         Ok(_) => (),
