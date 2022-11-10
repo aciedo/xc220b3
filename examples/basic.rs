@@ -1,7 +1,7 @@
 use rand::{thread_rng, Rng, RngCore};
 use tracing::{error, info};
 
-use xc220b3::{Session, SessionError};
+use xc220b3::{Session, SessionError, LockedBox, LockedBoxError};
 
 fn main() -> Result<(), SessionError> {
     tracing_subscriber::fmt::init();
@@ -52,16 +52,47 @@ fn main() -> Result<(), SessionError> {
     let mut tampered_bytes = sesh1.encrypt(data.clone());
     tamper_with(&mut tampered_bytes, 1);
 
-    // info!(
-    //     "Tampered Encrypted: {}",
-    //     hex::encode(tampered_bytes.clone())
-    // );
-
     match sesh2.decrypt(tampered_bytes) {
         Ok(_) => (),
         Err(e) => match e {
             SessionError::MacMismatch => {
                 info!("MAC mismatch! Message was tampered with! (expected)")
+            },
+            _ => error!("Wrong error received")
+        },
+    };
+
+    // LockedBox
+    let mut key = [0u8; 32];
+    rng.fill_bytes(&mut key);
+
+    let mut lb = LockedBox::new(&key);
+
+    // generate 512 MB of random data to encrypt
+    let mut data: Vec<u8> = vec![0; 16 * 1024];
+    rng.fill_bytes(&mut data);
+
+    let encrypted_bytes = lb.encrypt(data.clone());
+
+    match lb.decrypt(encrypted_bytes.clone()) {
+        Ok(_) => {
+            info!("Decrypted");
+        }
+        Err(e) => {
+            error!("Error: {:?}", e);
+        }
+    };
+
+    info!("Now attempting data modification...");
+
+    let mut tampered_bytes = encrypted_bytes;
+    tamper_with(&mut tampered_bytes, 1);
+
+    match lb.decrypt(tampered_bytes) {
+        Ok(_) => (),
+        Err(e) => match e {
+            LockedBoxError::MacMismatch => {
+                info!("MAC mismatch! Data was tampered with! (expected)")
             },
             _ => error!("Wrong error received")
         },
