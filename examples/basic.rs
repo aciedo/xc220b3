@@ -32,11 +32,18 @@ fn main() -> Result<(), SessionError> {
     // public keys for valera, so they verify that they're talking to valid peers
     // before we give each session the other's public key.
 
-    // generate 512 MB of random data to encrypt
-    let mut data: Vec<u8> = vec![0; 16 * 1024];
+    // generate 512 MiB of random data to encrypt
+    let mut data: Vec<u8> = vec![0; 512 * 1024 * 1024];
     rng.fill_bytes(&mut data);
 
-    let encrypted_bytes = sesh1.encrypt(data.clone());
+    let start = std::time::Instant::now();
+    let encrypted_bytes = sesh1.encrypt(&data);
+    info!("MB/s: {:?}", (data.len() as f64 / start.elapsed().as_secs_f64()) / 1000.0 / 1000.0);
+
+    let cloned = encrypted_bytes.clone();
+    let start = std::time::Instant::now();
+    sesh2.decrypt(cloned)?;
+    info!("MB/s: {:?}", (data.len() as f64 / start.elapsed().as_secs_f64()) / 1000.0 / 1000.0);
 
     match sesh2.decrypt(encrypted_bytes.clone()) {
         Ok(_) => {
@@ -49,7 +56,7 @@ fn main() -> Result<(), SessionError> {
 
     info!("Now attempting message modification...");
 
-    let mut tampered_bytes = sesh1.encrypt(data.clone());
+    let mut tampered_bytes = sesh1.encrypt(&data);
     tamper_with(&mut tampered_bytes, 1);
 
     match sesh2.decrypt(tampered_bytes) {
@@ -94,7 +101,6 @@ fn main() -> Result<(), SessionError> {
             LockedBoxError::MacMismatch => {
                 info!("MAC mismatch! Data was tampered with! (expected)")
             },
-            _ => error!("Wrong error received")
         },
     };
 

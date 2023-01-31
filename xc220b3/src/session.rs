@@ -72,7 +72,7 @@ impl Session {
         Ok(())
     }
 
-    pub fn encrypt(&mut self, plain: Vec<u8>) -> Vec<u8> {
+    pub fn encrypt(&mut self, plain: &[u8]) -> Vec<u8> {
         if !self.ready {
             panic!("session not ready!")
         };
@@ -86,7 +86,7 @@ impl Session {
 
         #[cfg(feature = "tracing")]
         trace!("start");
-        let mac = self.mac(&plain);
+        let mac = self.mac(plain);
         #[cfg(feature = "tracing")]
         trace!("MAC: {}", mac.to_hex());
 
@@ -96,7 +96,7 @@ impl Session {
         #[cfg(feature = "tracing")]
         trace!("encrypting");
         self.xcc20 = XC220::new(&self.key, mac.as_bytes());
-        self.xcc20.process(&plain[..], &mut output[..]);
+        self.xcc20.process(plain, &mut output[..]);
         #[cfg(feature = "tracing")]
         trace!("extending with mac");
         output.extend_from_slice(mac.as_bytes());
