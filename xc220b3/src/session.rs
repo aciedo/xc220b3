@@ -1,11 +1,11 @@
 use blake3::Hasher;
-use k256::{ecdh::EphemeralSecret, EncodedPoint, elliptic_curve::PublicKey};
+use core::iter::repeat;
+use k256::{ecdh::EphemeralSecret, elliptic_curve::PublicKey, EncodedPoint};
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "tracing")]
-use tracing::{trace, info_span};
-use core::iter::repeat;
+use tracing::{info_span, trace};
 
-use crate::{mac::MAC, xc220::XC220, symmetriccipher::SynchronousStreamCipher};
+use crate::{mac::MAC, symmetriccipher::SynchronousStreamCipher, xc220::XC220};
 
 pub struct Session {
     ready: bool,
@@ -19,7 +19,7 @@ pub struct Session {
 pub enum SessionError {
     MacMismatch,
     InvalidPubKey,
-    EmptySecret
+    EmptySecret,
 }
 
 impl Session {
@@ -50,23 +50,23 @@ impl Session {
 
         let pk = match PublicKey::from_sec1_bytes(pk.as_ref()) {
             Ok(pk) => pk,
-            Err(_) => return Err(SessionError::InvalidPubKey)
+            Err(_) => return Err(SessionError::InvalidPubKey),
         };
-        let shared = {
-            let this = self.secret.as_ref();
-            match this {
-                Some(val) => val,
-                None => return Err(SessionError::EmptySecret),
-            }
-        }.diffie_hellman(&pk);
-        let shared_bytes = shared.raw_secret_bytes();
-
-        self.b3.update(shared_bytes);
+        let shared = match self.secret.as_ref() {
+            Some(val) => val,
+            None => return Err(SessionError::EmptySecret),
+        }
+        .diffie_hellman(&pk);
+        self.b3.update(shared.raw_secret_bytes());
         self.key = self.b3.finalize().as_bytes().clone();
         self.b3.reset();
         self.xcc20 = XC220::new(&self.key, &[0; 24]);
         #[cfg(feature = "tracing")]
-        trace!("key: {}***{}", to_hex(&self.key[0..2]), to_hex(&self.key[30..32]));
+        trace!(
+            "key: {}***{}",
+            to_hex(&self.key[0..2]),
+            to_hex(&self.key[30..32])
+        );
         self.ready = true;
         self.secret = None;
         Ok(())
@@ -96,7 +96,7 @@ impl Session {
         #[cfg(feature = "tracing")]
         trace!("encrypting");
         self.xcc20 = XC220::new(&self.key, mac.as_bytes());
-        self.xcc20.process(&plain[..], &mut output[..]);
+        self.xcc20.process(&plain, &mut output[..]);
         #[cfg(feature = "tracing")]
         trace!("extending with mac");
         output.extend_from_slice(mac.as_bytes());
@@ -169,7 +169,9 @@ impl Session {
         if self.secret.is_none() {
             Err(SessionError::EmptySecret)
         } else {
-            Ok(EncodedPoint::from(self.secret.as_ref().unwrap().public_key()))
+            Ok(EncodedPoint::from(
+                self.secret.as_ref().unwrap().public_key(),
+            ))
         }
     }
 }

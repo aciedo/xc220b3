@@ -44,3 +44,10 @@ This is a custom authenticated cipher used for symmetrical encryption. It is bas
 ## Key Exchange
 
 Not ready yet. Aiming to be quantum-safe.
+
+## Benchmarks
+
+| CPU | Encrypt (MB/s) | Decrypt (MB/s) |
+| --- | --- | --- |
+| Intel i5-12600k | 533.9 | 583.5 |
+| Apple M1 Max | 443.9 | 432.0 |
