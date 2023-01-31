@@ -50,4 +50,4 @@ Not ready yet. Aiming to be quantum-safe.
 | CPU | Encrypt (MB/s) | Decrypt (MB/s) |
 | --- | --- | --- |
 | Intel i5-12600k | 533.9 | 583.5 |
-| Apple M1 Max | - | - |
+| Apple M1 Max | 443.9 | 432.0 |
