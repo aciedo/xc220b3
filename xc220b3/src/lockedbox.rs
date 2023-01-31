@@ -18,9 +18,9 @@ pub enum LockedBoxError {
 
 impl LockedBox {
     /// Creates a new LockedBox with a random ephemeral secret using provided RNG.
-    pub fn new(seed: &[u8; 32]) -> LockedBox {
+    pub fn new(seed: [u8; 32]) -> LockedBox {
         let mut b3 = Hasher::new();
-        b3.update(seed);
+        b3.update(&seed);
         let key: [u8; 32] = b3.finalize().into();
         b3.reset();
 
