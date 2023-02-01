@@ -6,10 +6,10 @@
 
 use core::{cmp, ptr};
 
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub enum BufferResult {
     BufferUnderflow,
-    BufferOverflow
+    BufferOverflow,
 }
 
 pub trait ReadBuffer {
@@ -17,7 +17,9 @@ pub trait ReadBuffer {
     fn is_full(&self) -> bool;
     fn remaining(&self) -> usize;
     fn capacity(&self) -> usize;
-    fn position(&self) -> usize { self.capacity() - self.remaining() }
+    fn position(&self) -> usize {
+        self.capacity() - self.remaining()
+    }
 
     fn rewind(&mut self, distance: usize);
     fn truncate(&mut self, amount: usize);
@@ -54,7 +56,9 @@ pub trait WriteBuffer {
     fn is_full(&self) -> bool;
     fn remaining(&self) -> usize;
     fn capacity(&self) -> usize;
-    fn position(&self) -> usize { self.capacity() - self.remaining() }
+    fn position(&self) -> usize {
+        self.capacity() - self.remaining()
+    }
 
     fn rewind(&mut self, distance: usize);
     fn reset(&mut self);
@@ -72,31 +76,42 @@ pub trait WriteBuffer {
 
 pub struct RefReadBuffer<'a> {
     buff: &'a [u8],
-    pos: usize
+    pos: usize,
 }
 
-impl <'a> RefReadBuffer<'a> {
+impl<'a> RefReadBuffer<'a> {
     pub fn new(buff: &[u8]) -> RefReadBuffer {
-        RefReadBuffer {
-            buff: buff,
-            pos: 0
-        }
+        RefReadBuffer { buff, pos: 0 }
     }
 }
 
-impl <'a> ReadBuffer for RefReadBuffer<'a> {
-    fn is_empty(&self) -> bool { self.pos == self.buff.len() }
-    fn is_full(&self) -> bool { self.pos == 0 }
-    fn remaining(&self) -> usize { self.buff.len() - self.pos }
-    fn capacity(&self) -> usize { self.buff.len() }
+impl<'a> ReadBuffer for RefReadBuffer<'a> {
+    fn is_empty(&self) -> bool {
+        self.pos == self.buff.len()
+    }
+    fn is_full(&self) -> bool {
+        self.pos == 0
+    }
+    fn remaining(&self) -> usize {
+        self.buff.len() - self.pos
+    }
+    fn capacity(&self) -> usize {
+        self.buff.len()
+    }
 
-    fn rewind(&mut self, distance: usize) { self.pos -= distance; }
+    fn rewind(&mut self, distance: usize) {
+        self.pos -= distance;
+    }
     fn truncate(&mut self, amount: usize) {
         self.buff = &self.buff[..self.buff.len() - amount];
     }
-    fn reset(&mut self) { self.pos = 0; }
+    fn reset(&mut self) {
+        self.pos = 0;
+    }
 
-    fn peek_next(&self, count: usize) -> &[u8] { &self.buff[self.pos..count] }
+    fn peek_next(&self, count: usize) -> &[u8] {
+        &self.buff[self.pos..count]
+    }
 
     fn take_next(&mut self, count: usize) -> &[u8] {
         let r = &self.buff[self.pos..self.pos + count];
@@ -108,17 +123,29 @@ impl <'a> ReadBuffer for RefReadBuffer<'a> {
 pub struct RefWriteBuffer<'a> {
     buff: &'a mut [u8],
     len: usize,
-    pos: usize
+    pos: usize,
 }
 
-impl <'a> WriteBuffer for RefWriteBuffer<'a> {
-    fn is_empty(&self) -> bool { self.pos == 0 }
-    fn is_full(&self) -> bool { self.pos == self.len }
-    fn remaining(&self) -> usize { self.len - self.pos }
-    fn capacity(&self) -> usize { self.len }
+impl<'a> WriteBuffer for RefWriteBuffer<'a> {
+    fn is_empty(&self) -> bool {
+        self.pos == 0
+    }
+    fn is_full(&self) -> bool {
+        self.pos == self.len
+    }
+    fn remaining(&self) -> usize {
+        self.len - self.pos
+    }
+    fn capacity(&self) -> usize {
+        self.len
+    }
 
-    fn rewind(&mut self, distance: usize) { self.pos -= distance; }
-    fn reset(&mut self) { self.pos = 0; }
+    fn rewind(&mut self, distance: usize) {
+        self.pos -= distance;
+    }
+    fn reset(&mut self) {
+        self.pos = 0;
+    }
 
     fn peek_read_buffer(&mut self) -> RefReadBuffer {
         RefReadBuffer::new(&mut self.buff[..self.pos])

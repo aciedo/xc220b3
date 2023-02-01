@@ -37,8 +37,6 @@ impl MAC {
         }
         s
     }
-
-    
 }
 
 impl From<MAC> for [u8; 24] {

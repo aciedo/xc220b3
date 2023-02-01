@@ -8,16 +8,18 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::{io};
-use core::{ptr, mem::MaybeUninit};
+use core::{mem::MaybeUninit, ptr};
+use std::io;
 
-use crate::buffer::{ReadBuffer, WriteBuffer, BufferResult::{self, BufferUnderflow, BufferOverflow}};
-use crate::symmetriccipher::{SynchronousStreamCipher};
+use crate::buffer::{
+    BufferResult::{self, BufferOverflow, BufferUnderflow},
+    ReadBuffer, WriteBuffer,
+};
+use crate::symmetriccipher::SynchronousStreamCipher;
 
-
-/// Write a u64 into a vector, which must be 8 bytes long. The value is written in big-endian
-/// format.
-pub fn write_u64_be(dst: &mut[u8], mut input: u64) {
+/// Write a u64 into a vector, which must be 8 bytes long. The value is written
+/// in big-endian format.
+pub fn write_u64_be(dst: &mut [u8], mut input: u64) {
     assert!(dst.len() == 8);
     input = input.to_be();
     unsafe {
@@ -26,9 +28,9 @@ pub fn write_u64_be(dst: &mut[u8], mut input: u64) {
     }
 }
 
-/// Write a u64 into a vector, which must be 8 bytes long. The value is written in little-endian
-/// format.
-pub fn write_u64_le(dst: &mut[u8], mut input: u64) {
+/// Write a u64 into a vector, which must be 8 bytes long. The value is written
+/// in little-endian format.
+pub fn write_u64_le(dst: &mut [u8], mut input: u64) {
     assert!(dst.len() == 8);
     input = input.to_le();
     unsafe {
@@ -37,8 +39,8 @@ pub fn write_u64_le(dst: &mut[u8], mut input: u64) {
     }
 }
 
-/// Write a u32 into a vector, which must be 4 bytes long. The value is written in big-endian
-/// format.
+/// Write a u32 into a vector, which must be 4 bytes long. The value is written
+/// in big-endian format.
 pub fn write_u32_be(dst: &mut [u8], mut input: u32) {
     assert!(dst.len() == 4);
     input = input.to_be();
@@ -48,9 +50,9 @@ pub fn write_u32_be(dst: &mut [u8], mut input: u32) {
     }
 }
 
-/// Write a u32 into a vector, which must be 4 bytes long. The value is written in little-endian
-/// format.
-pub fn write_u32_le(dst: &mut[u8], mut input: u32) {
+/// Write a u32 into a vector, which must be 4 bytes long. The value is written
+/// in little-endian format.
+pub fn write_u32_le(dst: &mut [u8], mut input: u32) {
     assert!(dst.len() == 4);
     input = input.to_le();
     unsafe {
@@ -71,7 +73,7 @@ pub fn read_u32_le(input: &[u8]) -> u32 {
 }
 
 /// XOR plaintext and keystream, storing the result in dst.
-pub fn xor_keystream(dst: &mut[u8], plaintext: &[u8], keystream: &[u8]) {
+pub fn xor_keystream(dst: &mut [u8], plaintext: &[u8], keystream: &[u8]) {
     assert!(dst.len() == plaintext.len());
     assert!(plaintext.len() <= keystream.len());
 
@@ -80,7 +82,7 @@ pub fn xor_keystream(dst: &mut[u8], plaintext: &[u8], keystream: &[u8]) {
     let k = keystream.as_ptr();
     let d = dst.as_mut_ptr();
     for i in 0isize..plaintext.len() as isize {
-        unsafe{ *d.offset(i) = *p.offset(i) ^ *k.offset(i) };
+        unsafe { *d.offset(i) = *p.offset(i) ^ *k.offset(i) };
     }
 }
 
@@ -94,7 +96,10 @@ pub trait WriteExt {
     fn write_u64_be(&mut self, val: u64) -> io::Result<()>;
 }
 
-impl <T> WriteExt for T where T: io::Write {
+impl<T> WriteExt for T
+where
+    T: io::Write,
+{
     fn write_u8(&mut self, val: u8) -> io::Result<()> {
         let buff = [val];
         self.write_all(&buff)
@@ -121,13 +126,13 @@ impl <T> WriteExt for T where T: io::Write {
     }
 }
 
-/// symm_enc_or_dec() implements the necessary functionality to turn a SynchronousStreamCipher into
-/// an Encryptor or Decryptor
+/// symm_enc_or_dec() implements the necessary functionality to turn a
+/// SynchronousStreamCipher into an Encryptor or Decryptor
 pub fn symm_enc_or_dec<S: SynchronousStreamCipher, R: ReadBuffer, W: WriteBuffer>(
-        c: &mut S,
-        input: &mut R,
-        output: &mut W) ->
-        BufferResult {
+    c: &mut S,
+    input: &mut R,
+    output: &mut W,
+) -> BufferResult {
     let count = std::cmp::min(input.remaining(), output.remaining());
     c.process(input.take_next(count), output.take_next(count));
     if input.is_empty() {
@@ -137,31 +142,33 @@ pub fn symm_enc_or_dec<S: SynchronousStreamCipher, R: ReadBuffer, W: WriteBuffer
     }
 }
 
-/// A FixedBuffer, likes its name implies, is a fixed size buffer. When the buffer becomes full, it
-/// must be processed. The input() method takes care of processing and then clearing the buffer
-/// automatically. However, other methods do not and require the caller to process the buffer. Any
-/// method that modifies the buffer directory or provides the caller with bytes that can be modifies
-/// results in those bytes being marked as used by the buffer.
+/// A FixedBuffer, likes its name implies, is a fixed size buffer. When the
+/// buffer becomes full, it must be processed. The input() method takes care of
+/// processing and then clearing the buffer automatically. However, other
+/// methods do not and require the caller to process the buffer. Any method that
+/// modifies the buffer directory or provides the caller with bytes that can be
+/// modifies results in those bytes being marked as used by the buffer.
 pub trait FixedBuffer {
-    /// Input a vector of bytes. If the buffer becomes full, process it with the provided
-    /// function and then clear the buffer.
+    /// Input a vector of bytes. If the buffer becomes full, process it with the
+    /// provided function and then clear the buffer.
     fn input<F: FnMut(&[u8])>(&mut self, input: &[u8], func: F);
 
     /// Reset the buffer.
     fn reset(&mut self);
 
-    /// Zero the buffer up until the specified index. The buffer position currently must not be
-    /// greater than that index.
+    /// Zero the buffer up until the specified index. The buffer position
+    /// currently must not be greater than that index.
     fn zero_until(&mut self, idx: usize);
 
-    /// Get a slice of the buffer of the specified size. There must be at least that many bytes
-    /// remaining in the buffer.
+    /// Get a slice of the buffer of the specified size. There must be at least
+    /// that many bytes remaining in the buffer.
     fn next<'s>(&'s mut self, len: usize) -> &'s mut [u8];
 
-    /// Get the current buffer. The buffer must already be full. This clears the buffer as well.
+    /// Get the current buffer. The buffer must already be full. This clears the
+    /// buffer as well.
     fn full_buffer<'s>(&'s mut self) -> &'s [u8];
 
-     /// Get the current buffer.
+    /// Get the current buffer.
     fn current_buffer<'s>(&'s mut self) -> &'s [u8];
 
     /// Get the current position of the buffer.
@@ -174,17 +181,18 @@ pub trait FixedBuffer {
     fn size(&self) -> usize;
 }
 
-/// The StandardPadding trait adds a method useful for various hash algorithms to a FixedBuffer
-/// struct.
+/// The StandardPadding trait adds a method useful for various hash algorithms
+/// to a FixedBuffer struct.
 pub trait StandardPadding {
-    /// Add standard padding to the buffer. The buffer must not be full when this method is called
-    /// and is guaranteed to have exactly rem remaining bytes when it returns. If there are not at
-    /// least rem bytes available, the buffer will be zero padded, processed, cleared, and then
+    /// Add standard padding to the buffer. The buffer must not be full when
+    /// this method is called and is guaranteed to have exactly rem
+    /// remaining bytes when it returns. If there are not at least rem bytes
+    /// available, the buffer will be zero padded, processed, cleared, and then
     /// filled with zeros again until only rem bytes are remaining.
     fn standard_padding<F: FnMut(&[u8])>(&mut self, rem: usize, func: F);
 }
 
-impl <T: FixedBuffer> StandardPadding for T {
+impl<T: FixedBuffer> StandardPadding for T {
     fn standard_padding<F: FnMut(&[u8])>(&mut self, rem: usize, mut func: F) {
         let size = self.size();
 
