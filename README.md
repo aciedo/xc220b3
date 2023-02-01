@@ -51,3 +51,4 @@ Not ready yet. Aiming to be quantum-safe.
 | --- | --- | --- |
 | Intel i5-12600k | 533.9 | 583.5 |
 | Apple M1 Max | 443.9 | 432.0 |
+| AMD EPYC 7542 | 371.5 | 368.5 |
