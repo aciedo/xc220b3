@@ -4,13 +4,13 @@
 
 ### Demo
 
-```sh
+```bash
 RUST_LOG=trace cargo run --release --example basic
 ```
 
 _For the losers who use Windows_
 
-```
+```ps1
 $env:RUST_LOG="trace"
 cargo run --release --example basic
 ```

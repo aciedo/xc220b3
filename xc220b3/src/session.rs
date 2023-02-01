@@ -122,7 +122,7 @@ impl Session {
 
         let claimed_mac = MAC::from(ciphertext.split_off(ciphertext.len() - 24));
         #[cfg(feature = "tracing")]
-        trace!("allocating for {}byte output", ciphertext.len());
+        trace!("allocating for {} byte output", ciphertext.len());
         let mut output: Vec<u8> = repeat(0).take(ciphertext.len()).collect();
         #[cfg(feature = "tracing")]
         trace!("creating new chacha");

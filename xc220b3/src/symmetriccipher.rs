@@ -22,13 +22,21 @@ pub trait BlockDecryptorX8 {
 }
 
 pub trait Encryptor {
-    fn encrypt(&mut self, input: &mut RefReadBuffer, output: &mut RefWriteBuffer, eof: bool)
-        -> BufferResult;
+    fn encrypt(
+        &mut self,
+        input: &mut RefReadBuffer,
+        output: &mut RefWriteBuffer,
+        eof: bool,
+    ) -> BufferResult;
 }
 
 pub trait Decryptor {
-    fn decrypt(&mut self, input: &mut RefReadBuffer, output: &mut RefWriteBuffer, eof: bool)
-        -> BufferResult;
+    fn decrypt(
+        &mut self,
+        input: &mut RefReadBuffer,
+        output: &mut RefWriteBuffer,
+        eof: bool,
+    ) -> BufferResult;
 }
 
 pub trait SynchronousStreamCipher {
@@ -44,15 +52,23 @@ impl SynchronousStreamCipher for Box<dyn SynchronousStreamCipher + 'static> {
 }
 
 impl Encryptor for Box<dyn SynchronousStreamCipher + 'static> {
-    fn encrypt(&mut self, input: &mut RefReadBuffer, output: &mut RefWriteBuffer, _: bool)
-            -> BufferResult {
+    fn encrypt(
+        &mut self,
+        input: &mut RefReadBuffer,
+        output: &mut RefWriteBuffer,
+        _: bool,
+    ) -> BufferResult {
         symm_enc_or_dec(self, input, output)
     }
 }
 
 impl Decryptor for Box<dyn SynchronousStreamCipher + 'static> {
-    fn decrypt(&mut self, input: &mut RefReadBuffer, output: &mut RefWriteBuffer, _: bool)
-            -> BufferResult {
+    fn decrypt(
+        &mut self,
+        input: &mut RefReadBuffer,
+        output: &mut RefWriteBuffer,
+        _: bool,
+    ) -> BufferResult {
         symm_enc_or_dec(self, input, output)
     }
 }
